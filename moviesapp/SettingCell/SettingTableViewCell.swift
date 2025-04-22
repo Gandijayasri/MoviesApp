@@ -1,23 +1,35 @@
 //
-//  SettingTAbleViewCell.swift
-//  moviesapp
+//  SettingTableViewCell.swift
+//  MoviesApp
 //
-//  Created by Jayasri Gandi on 22/04/25.
+//  Created by Jayasri Gandi on 19/04/25.
 //
 
 import UIKit
 
-class SettingTAbleViewCell: UITableViewCell {
+protocol SettingTableViewCellDelegate {
+    func loginButtontapped()
+    func  RegisterButtontapped()
+    func settingButtontapped()
+}
 
+class SettingTableViewCell: UITableViewCell {
+    var delegate :SettingTableViewCellDelegate!
     override func awakeFromNib() {
         super.awakeFromNib()
-        // Initialization code
+            }
+    
+    @IBAction func loginButtontapped() {
+        delegate.loginButtontapped()
+     
     }
-
-    override func setSelected(_ selected: Bool, animated: Bool) {
-        super.setSelected(selected, animated: animated)
-
-        // Configure the view for the selected state
+    
+    @IBAction func  RegisterButtontapped() {
+        delegate.RegisterButtontapped()
+        
+    }
+    @IBAction func settingButtontapped() {
+        delegate.settingButtontapped()
     }
     
 }
