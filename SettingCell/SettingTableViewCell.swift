@@ -2,7 +2,7 @@
 //  SettingTableViewCell.swift
 //  MoviesApp
 //
-//  Created by Jayasri Gandi on 19/04/25.
+//  Created by Jayasri Gandi on 22/04/25.
 //
 
 import UIKit
