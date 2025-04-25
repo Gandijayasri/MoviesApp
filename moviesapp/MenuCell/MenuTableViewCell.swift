@@ -16,6 +16,9 @@ class MenuTableViewCell: UITableViewCell {
         // Initialization code
     }
 
- 
+    func confiqureUI(menu:Menu?){
+        menuOutlet.text = menu?.title
+        
+    }
     
 }

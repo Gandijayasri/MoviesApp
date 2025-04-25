@@ -21,10 +21,13 @@ class RootViewController: UIViewController {
     
     var isSidemenuOpen = false
     var menuData:[Menu] = []
+    private var shouldScrollToTop = false
+    var homeData: [Playlist] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
         
+        // Setup menu table view
         homeViewWidth.constant = screenWidth
         menuWidth.constant = menuViewWidth
         menuViewLeading.constant = -menuViewWidth
@@ -32,13 +35,36 @@ class RootViewController: UIViewController {
         menuTableView.register(UINib(nibName: "MenuTableViewCell", bundle: nil), forCellReuseIdentifier: "MenuTableViewCell")
         menuTableView.delegate = self
         menuTableView.dataSource = self
-       
         
+        // Setup home table view
+        hometableView.delegate = self
+        hometableView.dataSource = self
+        hometableView.register(UITableViewCell.self, forCellReuseIdentifier: "HomeCell")
+        
+        // Load data
+        getHomeData()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         hideSideMenu()
+    }
+    
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        getMenuData()
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        
+        if shouldScrollToTop && !homeData.isEmpty {
+            shouldScrollToTop = false
+            let indexPath = IndexPath(row: 0, section: 0)
+            if hometableView.numberOfRows(inSection: 0) > 0 {
+                hometableView.scrollToRow(at: indexPath, at: .top, animated: true)
+            }
+        }
     }
     
     func hideSideMenu() {
@@ -86,56 +112,115 @@ class RootViewController: UIViewController {
             if let data = data {
                 let menuModel = try? JSONDecoder().decode (MenuModel.self, from:data)
                 self.menuData = menuModel?.body?.data ?? []
-                DispatchQueue.main.sync {
+                DispatchQueue.main.async {
                     self.menuTableView.reloadData()
                 }
-                
                 print ("menucount",menuModel?.body?.data?.count)
             }
         }.resume ()
+    }
+    
+    func getHomeData() {
+        guard let url = URL(string: "https://dummyjson.com/c/01ff-5c0c-4d12-a864")
+        else { return }
+        
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        
+        var headers: [String: String] = [:]
+        headers["Authorization"] = "cf606825b8a045c1aae39f7fe39de7d7"
+        headers["Content-Type"] = "application/json"
+        urlRequest.allHTTPHeaderFields = headers
+        
+        let body: [String: Any] = ["homeid": "62"]
+        do {
+            let bodyData = try JSONSerialization.data(withJSONObject: body, options: .prettyPrinted)
+            urlRequest.httpBody = bodyData
+            
+            URLSession.shared.dataTask(with: urlRequest) { [weak self] data, response, error in
+                guard let self = self else { return }
+                
+                if let data = data {
+                    if let homeModel = try? JSONDecoder().decode(HomeModel.self, from: data) {
+                        print("HomeModel:", homeModel.response?.data?.playlists?.count ?? "")
+                        self.homeData = homeModel.response?.data?.playlists ?? []
+                        
+                        DispatchQueue.main.async {
+                            self.hometableView.reloadData()
+                        }
+                    }
+                }
+            }.resume()
+        } catch {
+            print("Error serializing JSON: \(error)")
+        }
+    }
+    
+    func scrollToFirstRow() {
+        guard menuData.count > 0 else { return }
+        let indexPath = IndexPath(row: 0, section: 1)
+        if menuTableView.numberOfRows(inSection: 1) > 0 {
+            menuTableView.scrollToRow(at: indexPath, at: .top, animated: true)
+        }
+    }
+    
+    private func setupTableView() {
+        hometableView.delegate = self
+        hometableView.dataSource = self
+        hometableView.register(UITableViewCell.self, forCellReuseIdentifier: "HomeCell")
+        hometableView.reloadData()
     }
 }
 
 
 extension RootViewController : UITableViewDataSource {
-    
     func numberOfSections(in tableView: UITableView) -> Int {
-        return 2
-    }
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        if section == 0 {
-            return 1
-        }else  {
-            return menuData.count
+        if tableView == menuTableView {
+            return 2
         }
+        return 1
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        if tableView == menuTableView {
+            return section == 0 ? 1 : menuData.count
+        }
+        return homeData.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        if indexPath.section == 0 {
-            if let cell = menuTableView.dequeueReusableCell(withIdentifier: "SettingTableViewCell" , for: indexPath) as? SettingTableViewCell {
+        if tableView == menuTableView {
+            if indexPath.section == 0 {
+                let cell = tableView.dequeueReusableCell(withIdentifier: "SettingTableViewCell", for: indexPath) as! SettingTableViewCell
                 cell.delegate = self
                 return cell
-                
-            }else if indexPath.section == 1 {
-                if let cell = menuTableView.dequeueReusableCell(withIdentifier: "MenuTableViewCell", for: indexPath) as? MenuTableViewCell{
-                    return cell
-                    
-                }
+            } else {
+                let cell = tableView.dequeueReusableCell(withIdentifier: "MenuTableViewCell", for: indexPath) as! MenuTableViewCell
+                // Configure menu cell if needed
+                return cell
             }
+        } else {
+            let cell = tableView.dequeueReusableCell(withIdentifier: "HomeCell", for: indexPath)
+            // Configure home cell
+            cell.textLabel?.text = "Home Item \(indexPath.row)"
+            return cell
         }
-        return UITableViewCell()
     }
 }
 
 extension RootViewController : UITableViewDelegate {
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        if indexPath.section == 0 {
-            return 60
-        } else {
-            return 45
+        if tableView == menuTableView {
+            return indexPath.section == 0 ? 60 : 45
+        }
+        return 100 // Height for home table view cells
+    }
+    
+    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
+        if indexPath.section == 1 && indexPath.row == 0 {
+            scrollToFirstRow()
         }
     }
-
 }
 extension RootViewController: SettingTableViewCellDelegate{
     func loginButtontapped() {
